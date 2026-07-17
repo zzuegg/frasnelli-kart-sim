@@ -127,9 +127,9 @@ export class LapGhost {
   }
 
   fastestGhost() {
-    if (!this.localBest) return this.reference;
-    if (!this.reference) return this.localBest;
-    return this.localBest.time < this.reference.time - .0005 ? this.localBest : this.reference;
+    // A driver's own best lap is the meaningful benchmark. The public lap is
+    // only a first-run fallback until a personal ghost has been recorded.
+    return this.localBest ?? this.reference;
   }
 
   get bestSource() { return this.best === this.localBest ? 'local' : 'reference'; }
