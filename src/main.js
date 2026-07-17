@@ -34,6 +34,7 @@ app.innerHTML = `
     <div class="notice" id="notice"></div>
     <div class="help">WASD fahren · I KI-Fahrer · G Ghost · L Optimallinie · C Kamera · R Reset · P Pause · Esc Setup</div>
 
+    <button class="camera-button" id="camera-button" type="button">Kamera</button>
     <button class="reset-button" id="reset-button" type="button">Reset</button>
     <div class="touch-controls" id="touch-controls" aria-hidden="true">
       <div class="touch-zone touch-steer" id="touch-steer" aria-label="Mobile Lenkung">
@@ -113,6 +114,7 @@ const gameShell = document.querySelector('.game-shell');
 const touchControlsElement = document.getElementById('touch-controls');
 const mobileControlsToggle = document.getElementById('mobile-controls-toggle');
 const resetButton = document.getElementById('reset-button');
+const cameraButton = document.getElementById('camera-button');
 const mobileControls = new MobileControls(document.getElementById('touch-steer'), document.getElementById('touch-pedal'));
 let mobileControlsEnabled;
 try {
@@ -256,6 +258,7 @@ function refreshControlSurfaces() {
   touchControlsElement.setAttribute('aria-hidden', String(!touchActive));
   gameShell.classList.toggle('touch-active', touchActive);
   resetButton.classList.toggle('active', running && !replayActive);
+  cameraButton.classList.toggle('active', touchActive);
   if (!touchActive) mobileControls.reset();
 }
 
@@ -453,6 +456,11 @@ function resetKartToStart() {
   showNotice('Kart zurückgesetzt');
 }
 
+function toggleCamera() {
+  cameraMode = (cameraMode + 1) % 2;
+  showNotice(cameraMode ? 'Cockpitkamera' : 'Verfolgerkamera');
+}
+
 function endGhostReplay(showMenu = true) {
   replayActive = false;
   replayTime = 0;
@@ -501,6 +509,7 @@ document.getElementById('start-btn').addEventListener('click', () => startSessio
 document.getElementById('ai-btn').addEventListener('click', () => startSession(true));
 ghostReplayButton.addEventListener('click', startGhostReplay);
 resetButton.addEventListener('click', resetKartToStart);
+cameraButton.addEventListener('click', toggleCamera);
 document.getElementById('calibrate-btn').addEventListener('click', () => { populateAxes(); document.getElementById('calibration').classList.remove('hidden'); });
 document.getElementById('scan-btn').addEventListener('click', populateAxes);
 document.getElementById('save-calibration').addEventListener('click', saveCalibration);
@@ -509,11 +518,11 @@ input.onDeviceChange = populateAxes;
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (replayActive) {
-    if (e.code === 'KeyC') { cameraMode = (cameraMode + 1) % 2; showNotice(cameraMode ? 'Cockpitkamera' : 'Verfolgerkamera'); }
+    if (e.code === 'KeyC') toggleCamera();
     if (e.code === 'Escape') endGhostReplay(true);
     return;
   }
-  if (e.code === 'KeyC') { cameraMode = (cameraMode + 1) % 2; showNotice(cameraMode ? 'Cockpitkamera' : 'Verfolgerkamera'); }
+  if (e.code === 'KeyC') toggleCamera();
   if (e.code === 'KeyR') resetKartToStart();
   if (e.code === 'KeyG' && lapGhost.best) { lapGhost.setEnabled(!lapGhost.enabled); refreshGhostControls(); showNotice(lapGhost.enabled ? 'Ghost sichtbar' : 'Ghost ausgeblendet'); }
   if (e.code === 'KeyL') { setRacingLineVisible(!racingLineVisible); showNotice(racingLineVisible ? 'Optimallinie sichtbar' : 'Optimallinie ausgeblendet'); }
