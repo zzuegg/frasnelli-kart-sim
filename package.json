@@ -1,0 +1,32 @@
+{
+  "name": "frasnelli-kart-sim",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "terrain:build": "node scripts/process-dtm.mjs",
+    "ghost:build-reference": "node scripts/build-reference-ghost.mjs",
+    "racing-line:build": "node scripts/train-ai-driver.mjs --shadow --global",
+    "ai:train": "node scripts/train-ai-driver.mjs --shadow --global",
+    "ai:optimize": "node scripts/optimize-ai-global.mjs",
+    "ai:replay": "node scripts/train-ai-driver.mjs --shadow",
+    "ai:replay-optimize": "node scripts/optimize-ai-offline.mjs",
+    "ai:global": "node scripts/train-ai-driver.mjs --shadow --global",
+    "ai:apply": "node scripts/apply-ai-training.mjs",
+    "test:physics": "node scripts/physics-smoke.mjs",
+    "test:ai": "node scripts/ai-lap-smoke.mjs",
+    "test:ghost": "node scripts/ghost-smoke.mjs",
+    "test:mobile": "node scripts/mobile-controls-smoke.mjs"
+  },
+  "dependencies": {
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "geotiff": "^2.1.4-beta.1",
+    "proj4": "^2.15.0",
+    "vite": "^7.2.4"
+  }
+}

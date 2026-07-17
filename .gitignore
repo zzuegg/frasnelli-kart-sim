@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+.ai-training/
+*.log
+frasnelli-dtm-*.tif
+wcs-capabilities.xml
+dtm-describe.xml
+frasnelli-osm*.xml
