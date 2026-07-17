@@ -347,6 +347,18 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   .start-meta { margin-top: 14px; }
 }
 
+@media (orientation: landscape) and (max-height: 650px) {
+  .game-shell.touch-active .camera-button,
+  .game-shell.touch-active .reset-button,
+  .game-shell.touch-active .exit-button {
+    left: max(12px, env(safe-area-inset-left));
+    transform: none;
+  }
+  .game-shell.touch-active .camera-button { top: max(12px, env(safe-area-inset-top)); }
+  .game-shell.touch-active .reset-button { top: max(58px, calc(env(safe-area-inset-top) + 46px)); }
+  .game-shell.touch-active .exit-button { top: max(104px, calc(env(safe-area-inset-top) + 92px)); }
+}
+
 @media (max-width: 700px) {
   .brand p, .minimap-wrap, .help, .racing-legend span { display: none; }
   .racing-legend { bottom: 105px; padding: 7px 9px; }
