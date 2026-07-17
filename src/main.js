@@ -36,6 +36,7 @@ app.innerHTML = `
 
     <button class="camera-button" id="camera-button" type="button">Kamera</button>
     <button class="reset-button" id="reset-button" type="button">Reset</button>
+    <button class="exit-button" id="exit-button" type="button">Exit</button>
     <div class="touch-controls" id="touch-controls" aria-hidden="true">
       <div class="touch-zone touch-steer" id="touch-steer" aria-label="Mobile Lenkung">
         <span class="touch-zone-label">Lenken</span><span class="touch-direction left">Links</span><span class="touch-direction right">Rechts</span><span class="touch-stick"></span>
@@ -115,6 +116,7 @@ const touchControlsElement = document.getElementById('touch-controls');
 const mobileControlsToggle = document.getElementById('mobile-controls-toggle');
 const resetButton = document.getElementById('reset-button');
 const cameraButton = document.getElementById('camera-button');
+const exitButton = document.getElementById('exit-button');
 const mobileControls = new MobileControls(document.getElementById('touch-steer'), document.getElementById('touch-pedal'));
 let mobileControlsEnabled;
 try {
@@ -259,6 +261,7 @@ function refreshControlSurfaces() {
   gameShell.classList.toggle('touch-active', touchActive);
   resetButton.classList.toggle('active', running && !replayActive);
   cameraButton.classList.toggle('active', touchActive);
+  exitButton.classList.toggle('active', touchActive);
   if (!touchActive) mobileControls.reset();
 }
 
@@ -461,6 +464,19 @@ function toggleCamera() {
   showNotice(cameraMode ? 'Cockpitkamera' : 'Verfolgerkamera');
 }
 
+function exitToMenu() {
+  if (replayActive) {
+    endGhostReplay(true);
+    return;
+  }
+  running = false;
+  paused = false;
+  aiEnabled = false;
+  mobileControls.reset();
+  document.getElementById('start-screen').classList.remove('hidden');
+  refreshControlSurfaces();
+}
+
 function endGhostReplay(showMenu = true) {
   replayActive = false;
   replayTime = 0;
@@ -510,6 +526,7 @@ document.getElementById('ai-btn').addEventListener('click', () => startSession(t
 ghostReplayButton.addEventListener('click', startGhostReplay);
 resetButton.addEventListener('click', resetKartToStart);
 cameraButton.addEventListener('click', toggleCamera);
+exitButton.addEventListener('click', exitToMenu);
 document.getElementById('calibrate-btn').addEventListener('click', () => { populateAxes(); document.getElementById('calibration').classList.remove('hidden'); });
 document.getElementById('scan-btn').addEventListener('click', populateAxes);
 document.getElementById('save-calibration').addEventListener('click', saveCalibration);
@@ -533,7 +550,7 @@ window.addEventListener('keydown', e => {
     showNotice(aiEnabled ? `KI-Fahrer aktiv · Bestzeit ${formatTime(RACING_LINE_LAP_TIME)}` : 'Fahrersteuerung aktiv', 3);
   }
   if (e.code === 'KeyP' && running) { paused = !paused; showNotice(paused ? 'Pause' : 'Weiter'); }
-  if (e.code === 'Escape') { running = false; document.getElementById('start-screen').classList.remove('hidden'); refreshControlSurfaces(); }
+  if (e.code === 'Escape') exitToMenu();
 });
 
 window.addEventListener('resize', () => {

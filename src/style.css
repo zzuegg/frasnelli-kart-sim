@@ -229,7 +229,8 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 }
 
 .reset-button,
-.camera-button {
+.camera-button,
+.exit-button {
   position: absolute;
   top: 18px;
   left: 50%;
@@ -248,9 +249,11 @@ button:disabled { cursor: not-allowed; opacity: .42; }
   z-index: 4;
 }
 .reset-button.active,
-.camera-button.active { display: block; }
+.camera-button.active,
+.exit-button.active { display: block; }
 .reset-button:hover,
-.camera-button:hover { border-color: var(--lime); color: var(--lime); }
+.camera-button:hover,
+.exit-button:hover { border-color: var(--lime); color: var(--lime); }
 
 .touch-controls {
   position: absolute;
@@ -321,6 +324,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 
 .game-shell.touch-active .camera-button { top: 72px; }
 .game-shell.touch-active .reset-button { top: 118px; }
+.game-shell.touch-active .exit-button { top: 164px; }
 .game-shell.touch-active .brand,
 .game-shell.touch-active .ghost-controls,
 .game-shell.touch-active .minimap-wrap,
