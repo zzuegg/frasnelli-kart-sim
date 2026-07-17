@@ -55,6 +55,7 @@ app.innerHTML = `
           <button class="primary" id="start-btn">Training starten</button>
           <button class="primary ai" id="ai-btn">KI-Runde fahren</button>
           <button class="secondary replay" id="ghost-replay-btn" disabled>Kein Ghost-Replay</button>
+          <button class="secondary" id="ghost-export-btn" disabled>Eigenen Ghost exportieren</button>
           <button class="secondary" id="calibrate-btn">G923 kalibrieren</button>
           <label class="secondary control-switch"><input type="checkbox" id="mobile-controls-toggle"> Mobile-Steuerung</label>
           <select class="secondary" id="driver-weight" aria-label="Fahrergewicht">
@@ -279,6 +280,7 @@ const ghostLead = document.getElementById('ghost-lead');
 const ghostLeadValue = document.getElementById('ghost-lead-value');
 const ghostBest = document.getElementById('ghost-best');
 const ghostReplayButton = document.getElementById('ghost-replay-btn');
+const ghostExportButton = document.getElementById('ghost-export-btn');
 function refreshGhostControls() {
   ghostVisible.checked = lapGhost.enabled;
   ghostVisible.disabled = !lapGhost.best;
@@ -288,7 +290,23 @@ function refreshGhostControls() {
   ghostBest.textContent = lapGhost.best ? `${ghostSource} ${formatTime(lapGhost.best.time)}` : 'Kein Ghost gespeichert';
   ghostReplayButton.disabled = !lapGhost.best;
   ghostReplayButton.textContent = lapGhost.best ? `Ghost-Replay · ${ghostSource} ${formatTime(lapGhost.best.time)}` : 'Kein Ghost-Replay';
+  ghostExportButton.disabled = !lapGhost.localBest;
 }
+
+function exportPersonalGhost() {
+  const lap = lapGhost.localBest;
+  if (!lap) return;
+  const publicLap = { version: 1, time: lap.time, driverWeight: lap.driverWeight, samples: lap.samples };
+  const blob = new Blob([JSON.stringify(publicLap)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `frasnelli-ghost-${lap.time.toFixed(3)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showNotice('Persönlicher Ghost exportiert');
+}
+
 let racingLineVisible = localStorage.getItem('frasnelli-racing-line-visible') !== 'false';
 const racingLineToggle = document.getElementById('racing-line-visible');
 function setRacingLineVisible(visible) {
@@ -524,6 +542,7 @@ function startSession(withAi) {
 document.getElementById('start-btn').addEventListener('click', () => startSession(false));
 document.getElementById('ai-btn').addEventListener('click', () => startSession(true));
 ghostReplayButton.addEventListener('click', startGhostReplay);
+ghostExportButton.addEventListener('click', exportPersonalGhost);
 resetButton.addEventListener('click', resetKartToStart);
 cameraButton.addEventListener('click', toggleCamera);
 exitButton.addEventListener('click', exitToMenu);
