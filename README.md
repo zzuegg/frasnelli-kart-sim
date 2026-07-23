@@ -16,7 +16,7 @@ Danach `http://127.0.0.1:5173` in Chrome oder Edge öffnen.
 - Tastatur: `W/S` Gas/Bremse, `A/D` lenken, `I` KI-Fahrer ein/aus, `R` zurücksetzen, `C` Kamera wechseln, `P` Pause
 - Logitech G923: in Logitech G HUB und im Spiel denselben Lenkradbereich einstellen (**270° empfohlen**), anschließend **G923 kalibrieren** auswählen und Lenkrad/Pedale den erkannten Achsen zuordnen.
 
-Die Browser-Gamepad-API unterstützt Lenkrad- und Pedaleingaben. TrueForce bzw. echtes Lenkmoment benötigt eine native Logitech-SDK-Anbindung und steht in dieser Web-Version nicht zur Verfügung. Falls der Browser einen Haptik-Aktuator meldet, nutzt das Spiel leichtes Rumble auf Curbs und bei Einschlägen.
+Die Browser-Gamepad-API unterstützt Lenkrad- und Pedaleingaben. TrueForce bzw. echtes Lenkmoment benötigt eine native Logitech-SDK-Anbindung und steht in dieser Web-Version nicht zur Verfügung. Falls der Browser einen Haptik-Aktuator meldet, überträgt das Spiel Kerbs, Reifenschlupf, blockierende Hinterräder und Einschläge als abgestuftes Rumble.
 
 ## Mobile Steuerung
 
@@ -24,7 +24,7 @@ Im Hauptmenü **Mobile-Steuerung** einschalten. Der linke Daumen lenkt links/rec
 
 ## Fahrphysik
 
-Das Modell bildet den **Birel ART N35-XR ST** ab: 140 kg Kartmasse, 1.070 mm Radstand, 1.208/1.410 mm Vorder-/Hinterachsbreite, 40×5×1.060-mm-Starrachse, hydraulische Hinterachs-Scheibenbremse, 340-mm-Lenkrad sowie harte Mitas-SRH/Duro-Mietkartreifen. Es verwendet nichtlineare Reifenkraft, kombinierten Brems-/Kurvengrip, dynamische Achslast, Lastempfindlichkeit und einen progressiven Gripabriss.
+Das Modell bildet den **Birel ART N35-XR ST** ab: 140 kg Kartmasse, 1.070 mm Radstand, 1.208/1.410 mm Vorder-/Hinterachsbreite, 40×5×1.060-mm-Starrachse, hydraulische Hinterachs-Scheibenbremse, 340-mm-Lenkrad sowie harte Mitas-SRH/Duro-Mietkartreifen. Physics V3 berechnet vier Radlasten und Raddrehzahlen, Ackermann-Lenkung, eine kombinierte Reifenellipse mit transientem Kraftaufbau, dynamische Chassisverwindung und Hinterradentlastung, Fahrerbewegung, Kupplungs-/Motorträgheit, Bremstemperatur sowie Reifenluftdruck, Temperatur und Verschleiß. Das Höhenmodell und die sägezahnförmigen Kerbs wirken einzeln auf jedes Rad.
 
 ## Bestzeit-Ghost
 

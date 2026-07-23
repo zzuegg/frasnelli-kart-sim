@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { cpus } from 'node:os';
 import { Worker } from 'node:worker_threads';
 import * as THREE from 'three';
-import { createKart, KartPhysics } from '../src/kart.js';
+import { createKart, KartPhysics, KART_PHYSICS_VERSION } from '../src/kart.js';
 import { RacingDriver } from '../src/ai-driver.js';
 import { TrackData, ROAD_WIDTH } from '../src/track.js';
 import { GEO_TRACK_POINTS } from '../src/generated/terrain-data.js';
@@ -26,6 +26,8 @@ const currentRacingData = await import(`${pathToFileURL(outputPath).href}?traini
 const sampleCount = GEO_TRACK_POINTS.length;
 const mod = value => (value % sampleCount + sampleCount) % sampleCount;
 const isStoredGlobalPolicy = currentRacingData.RACING_LINE_SOURCE?.startsWith('global-physics-')
+  && currentRacingData.RACING_LINE_PHYSICS_VERSION === KART_PHYSICS_VERSION
+  && currentRacingData.RACING_LINE_LAP_TIME > 35
   && Array.isArray(currentRacingData.RACING_POLICY_POINTS);
 const hasStoredPolicy = globalSearch ? isStoredGlobalPolicy : Array.isArray(currentRacingData.RACING_POLICY_POINTS);
 
@@ -257,7 +259,13 @@ function simulate(config, captureTrajectory = false) {
   }
 
   const flyingLap = laps[1] ?? null;
-  const valid = Boolean(flyingLap?.valid && flyingLap.impacts === 0 && flyingLap.maximumOffset <= maximumOffsetAllowed);
+  const valid = Boolean(
+    flyingLap?.valid
+    && flyingLap.time > 35
+    && flyingLap.time < 180
+    && flyingLap.impacts === 0
+    && flyingLap.maximumOffset <= maximumOffsetAllowed
+  );
   const failureIndex = flyingLap?.firstImpactIndex ?? flyingLap?.maximumOffsetIndex ?? firstImpactIndex ?? maximumOffsetIndex;
   return { config, valid, lap: flyingLap?.time ?? Infinity, flyingLap, failureIndex, buckets };
 }
@@ -707,6 +715,7 @@ const exportedDriverConfig = {
 
 const output = `// Generated from the fastest valid flying lap driven by the full N35 physics AI.\n`
   + `export const RACING_LINE_SOURCE = '${globalSearch ? 'global-physics-v8' : 'ai-physics'}';\n`
+  + `export const RACING_LINE_PHYSICS_VERSION = ${KART_PHYSICS_VERSION};\n`
   + `export const RACING_LINE_REFERENCE_WEIGHT = ${simulationDriverWeight};\n`
   + `export const RACING_LINE_TRIALS = ${candidates.length};\n`
   + `export const RACING_LINE_VALID_TRIALS = ${validTrials};\n`

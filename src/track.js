@@ -325,6 +325,46 @@ export class TrackData {
     return { point, heading: this.startHeading };
   }
 
+  surfaceAt(position, hintIndex = this.lastNearest) {
+    const n = this.samples.length;
+    let best = hintIndex;
+    let bestD2 = Infinity;
+    for (let k = hintIndex - 16; k <= hintIndex + 16; k++) {
+      const i = (k % n + n) % n;
+      const p = this.samples[i].point;
+      const dx = position.x - p.x;
+      const dz = position.z - p.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = i;
+      }
+    }
+    const point = this.sample(best);
+    const tangent = this.tangent(best);
+    const right = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+    const signedDistance = (position.x - point.x) * right.x + (position.z - point.z) * right.z;
+    const half = ROAD_WIDTH * .5;
+    const entry = this.samples[best];
+    let height = Math.abs(signedDistance) <= half + .75
+      ? signedDistance < 0
+        ? THREE.MathUtils.lerp(point.y, entry.leftHeight, Math.min(1, -signedDistance / half))
+        : THREE.MathUtils.lerp(point.y, entry.rightHeight, Math.min(1, signedDistance / half))
+      : terrainHeightAt(position.x, position.z);
+    const curbDepth = Math.abs(signedDistance) - half;
+    let curbHeight = 0;
+    if (curbDepth > 0 && curbDepth < .62) {
+      const tangentOffset = (position.x - point.x) * tangent.x + (position.z - point.z) * tangent.z;
+      const along = best / n * TRACK_LENGTH_METERS + tangentOffset;
+      const innerRamp = clamp01(curbDepth / .075);
+      const outerRamp = clamp01((.62 - curbDepth) / .09);
+      const serration = .5 + .5 * Math.sin(along * Math.PI * 2 / 1.15);
+      curbHeight = innerRamp * outerRamp * (.045 + .032 * serration);
+      height += curbHeight;
+    }
+    return { height, index: best, signedDistance, curbHeight };
+  }
+
   nearest(position, forceGlobal = false) {
     const n = this.samples.length;
     let best = this.lastNearest;
@@ -367,4 +407,8 @@ export class TrackData {
       progress: ((best - this.startIndex + n) % n) / n,
     };
   }
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
 }

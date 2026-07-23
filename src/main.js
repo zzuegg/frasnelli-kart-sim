@@ -603,7 +603,17 @@ function frame() {
       if (!aiEnabled) { captureHumanLapSample(currentInput); lapGhost.capture(fixedStep, physics); }
       accumulator -= fixedStep;
     }
-    if (physics.telemetry.curb && performance.now() - curbHapticTime > 130) { input.haptic(.18, 45); curbHapticTime = performance.now(); }
+    const hapticStrength = Math.max(
+      physics.telemetry.curb ? .14 : 0,
+      physics.telemetry.verticalShock * 1.9,
+      physics.telemetry.rearLock * .28,
+      Math.max(0, physics.telemetry.slip - .16) * .32,
+    );
+    const hapticInterval = physics.telemetry.verticalShock > .06 ? 48 : 90;
+    if (hapticStrength > .04 && performance.now() - curbHapticTime > hapticInterval) {
+      input.haptic(Math.min(.72, hapticStrength), 38);
+      curbHapticTime = performance.now();
+    }
   } else if (!aiEnabled) currentInput = manualInput;
   if (!replayActive) lapGhost.update(physics, dt);
   updateCamera(dt); updateHud(currentInput); drawMinimap(); updateAxisMeters();
