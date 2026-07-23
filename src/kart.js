@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { ROAD_WIDTH } from './track.js';
 
 const clamp = THREE.MathUtils.clamp;
-export const KART_PHYSICS_VERSION = 3;
+export const KART_PHYSICS_VERSION = 4;
 
 // Calibrated as a heavy 13-PS outdoor rental kart: rigid chassis, live rear
 // axle, centrifugal clutch, one hydraulic brake disc on the rear axle.
@@ -20,16 +20,18 @@ export const KART_MODEL = Object.freeze({
   rearLoadTransferShare: .68,
   jackingLoadFactor: .13,
   tireLoadSensitivity: .16,
+  rearTireLoadSensitivity: .06,
   tireRelaxationLength: .34,
   longitudinalGripScale: .84,
-  lateralGripScale: .96,
+  frontLateralGripScale: .93,
+  rearLateralGripScale: 1.12,
   longitudinalStiffness: 10.5,
   tireVerticalStiffness: 26000,
   tireVerticalDamping: 950,
   wheelRadius: .138,
   frontWheelInertia: .052,
   rearWheelInertia: .16,
-  axleCoupling: 9.5,
+  rearAxleInertia: .09,
   finalDrive: 2.65,
   drivetrainEfficiency: .84,
   engineTorqueScale: 1.18,
@@ -74,10 +76,10 @@ function ackermannAngles(steerAngle, wheelbase, trackWidth) {
     : { left: -outer, right: -inner };
 }
 
-function loadSensitiveMu(baseMu, normalLoad, referenceLoad) {
+function loadSensitiveMu(baseMu, normalLoad, referenceLoad, sensitivity = KART_MODEL.tireLoadSensitivity) {
   if (normalLoad <= 1) return 0;
   const loadRatio = normalLoad / Math.max(referenceLoad, 1);
-  return baseMu * clamp(1.02 - KART_MODEL.tireLoadSensitivity * (loadRatio - 1), .78, 1.14);
+  return baseMu * clamp(1.02 - sensitivity * (loadRatio - 1), .78, 1.14);
 }
 
 function smoothstep(edge0, edge1, value) {
@@ -85,10 +87,10 @@ function smoothstep(edge0, edge1, value) {
   return x * x * (3 - 2 * x);
 }
 
-function combinedTireEllipse(fx, fy, normalLoad, mu, conditionGrip = 1) {
+function combinedTireEllipse(fx, fy, normalLoad, mu, conditionGrip = 1, lateralGripScale = KART_MODEL.frontLateralGripScale) {
   if (normalLoad <= 1) return { fx: 0, fy: 0, utilization: 0 };
   const longPeak = Math.max(1, mu * conditionGrip * KART_MODEL.longitudinalGripScale * normalLoad);
-  const latPeak = Math.max(1, mu * conditionGrip * KART_MODEL.lateralGripScale * normalLoad);
+  const latPeak = Math.max(1, mu * conditionGrip * lateralGripScale * normalLoad);
   const utilization = Math.hypot(fx / longPeak, fy / latPeak);
   const scale = utilization > 1 ? 1 / utilization : 1;
   return { fx: fx * scale, fy: fy * scale, utilization: Math.min(utilization, 1), demand: Math.min(utilization, 3) };
@@ -580,7 +582,7 @@ export class KartPhysics {
     const turnSign = Math.abs(loadAcceleration) > .15 ? Math.sign(loadAcceleration) : Math.sign(this.steerAngle);
     const steeringFraction = clamp(Math.abs(this.steerAngle) / KART_MODEL.maxSteer, 0, 1);
     const corneringBuild = .25 + .75 * clamp(Math.abs(loadAcceleration) / (g * .9), 0, 1);
-    const driverJackingFactor = 1 + (this.driverWeight - 70) * .008;
+    const driverJackingFactor = 1 + (this.driverWeight - 70) * .010;
     const jackingTarget = turnSign * mass * g * KART_MODEL.jackingLoadFactor * driverJackingFactor * steeringFraction * corneringBuild;
     const jackingFrequency = 10.5;
     const jackingAcceleration = (jackingTarget - this.chassisJacking) * jackingFrequency ** 2 - 2 * .78 * jackingFrequency * this.chassisJackingRate;
@@ -640,8 +642,11 @@ export class KartPhysics {
       const pressureGrip = 1 - clamp(((tire.pressure - 1.06) / .58) ** 2, 0, .12);
       const wearGrip = 1 - tire.wear * .18;
       const conditionGrip = weatherGrip * rubberGrip * temperatureGrip * pressureGrip * wearGrip;
-      const referenceLoad = name.startsWith('front') ? staticFront * .5 : staticRear * .5;
-      const mu = loadSensitiveMu(baseSurfaceMu, normalLoad, referenceLoad);
+      const isFrontTire = name.startsWith('front');
+      const referenceLoad = isFrontTire ? staticFront * .5 : staticRear * .5;
+      const loadSensitivity = isFrontTire ? KART_MODEL.tireLoadSensitivity : KART_MODEL.rearTireLoadSensitivity;
+      const lateralGripScale = isFrontTire ? KART_MODEL.frontLateralGripScale : KART_MODEL.rearLateralGripScale;
+      const mu = loadSensitiveMu(baseSurfaceMu, normalLoad, referenceLoad, loadSensitivity);
       const slipDenominator = Math.max(Math.abs(wheelLong), 2);
       const slipRatio = (tire.omega * KART_MODEL.wheelRadius - wheelLong) / slipDenominator;
       tire.slipRatio = clamp(slipRatio, -3, 3);
@@ -654,16 +659,21 @@ export class KartPhysics {
       const pureFy = lateralTireForce(slipAngle, normalLoad, mu * conditionGrip, cornerStiffness);
       const relaxationRate = Math.max(Math.abs(wheelLong), 1.2) / KART_MODEL.tireRelaxationLength;
       tire.fy += (pureFy - tire.fy) * (1 - Math.exp(-relaxationRate * dt));
-      const combined = combinedTireEllipse(pureFx, tire.fy, normalLoad, mu, conditionGrip);
+      const combined = combinedTireEllipse(pureFx, tire.fy, normalLoad, mu, conditionGrip, lateralGripScale);
       tire.utilization = combined.utilization;
       tire.forceDemand = combined.demand;
       tireForces[name] = { ...combined, slipAngle, wheelLong, normalLoad };
     }
 
-    const driveTorquePerRearWheel = clutchTorque * KART_MODEL.finalDrive * KART_MODEL.drivetrainEfficiency * .5;
+    const driveTorqueRearAxle = clutchTorque * KART_MODEL.finalDrive * KART_MODEL.drivetrainEfficiency;
     const brakeFade = clamp((this.brakeTemperature - 420) / 350, 0, .25);
     const brakeTorquePerRearWheel = this.brakePressure ** 1.55 * KART_MODEL.maxBrakeTorque * .5 * (1 - brakeFade);
-    const axleTorque = (this.tires.rearRight.omega - this.tires.rearLeft.omega) * KART_MODEL.axleCoupling;
+    const updateTireCondition = (name, force, tire) => {
+      const slipPower = Math.abs(force.fx * (tire.omega * KART_MODEL.wheelRadius - force.wheelLong))
+        + Math.abs(force.fy * force.wheelLong * Math.tan(force.slipAngle));
+      tire.temperature += (slipPower * .000032 - (tire.temperature - this.conditions.ambientTemperature) * (.014 + totalSpeed * .0012)) * dt;
+      tire.wear = clamp(tire.wear + slipPower * dt * 4.5e-9, 0, 1);
+    };
     const integrateWheel = (name, inertiaValue, appliedTorque, brakingTorque = 0) => {
       const tire = this.tires[name];
       const force = tireForces[name];
@@ -673,15 +683,34 @@ export class KartPhysics {
       tire.omega = clamp(tire.omega + netTorque / inertiaValue * dt, -220, 220);
       if (brakingTorque > 0 && previousOmega * tire.omega < 0) tire.omega = 0;
       tire.angle -= tire.omega * dt;
-      const slipPower = Math.abs(force.fx * (tire.omega * KART_MODEL.wheelRadius - force.wheelLong))
-        + Math.abs(force.fy * force.wheelLong * Math.tan(force.slipAngle));
-      tire.temperature += (slipPower * .000032 - (tire.temperature - this.conditions.ambientTemperature) * (.014 + totalSpeed * .0012)) * dt;
-      tire.wear = clamp(tire.wear + slipPower * dt * 4.5e-9, 0, 1);
+      updateTireCondition(name, force, tire);
     };
     integrateWheel('frontLeft', KART_MODEL.frontWheelInertia, 0);
     integrateWheel('frontRight', KART_MODEL.frontWheelInertia, 0);
-    integrateWheel('rearLeft', KART_MODEL.rearWheelInertia, driveTorquePerRearWheel + axleTorque, brakeTorquePerRearWheel);
-    integrateWheel('rearRight', KART_MODEL.rearWheelInertia, driveTorquePerRearWheel - axleTorque, brakeTorquePerRearWheel);
+
+    // Both rear wheels are keyed to the N35's solid 40 mm axle. Integrating a
+    // single rotational degree of freedom prevents the unloaded inside wheel
+    // from spinning up like an open differential and abruptly consuming the
+    // outside tyre's lateral grip under power.
+    const rearOmegaBefore = (this.tires.rearLeft.omega + this.tires.rearRight.omega) * .5;
+    const rearRotationSign = Math.abs(rearOmegaBefore) > .5
+      ? Math.sign(rearOmegaBefore)
+      : Math.sign((wheelLongRL + wheelLongRR) * .5 || 1);
+    const rearTireTorque = (tireForces.rearLeft.fx + tireForces.rearRight.fx) * KART_MODEL.wheelRadius;
+    const rearBrakeTorque = brakeTorquePerRearWheel * 2;
+    const rearRotationalInertia = KART_MODEL.rearWheelInertia * 2 + KART_MODEL.rearAxleInertia;
+    let rearOmega = clamp(
+      rearOmegaBefore + (driveTorqueRearAxle - rearBrakeTorque * rearRotationSign - rearTireTorque) / rearRotationalInertia * dt,
+      -220,
+      220,
+    );
+    if (rearBrakeTorque > 0 && rearOmegaBefore * rearOmega < 0) rearOmega = 0;
+    for (const name of ['rearLeft', 'rearRight']) {
+      const tire = this.tires[name];
+      tire.omega = rearOmega;
+      tire.angle -= rearOmega * dt;
+      updateTireCondition(name, tireForces[name], tire);
+    }
     const brakePower = brakeTorquePerRearWheel * (Math.abs(this.tires.rearLeft.omega) + Math.abs(this.tires.rearRight.omega));
     this.brakeTemperature += (brakePower * .00011 - (this.brakeTemperature - this.conditions.ambientTemperature) * (.016 + totalSpeed * .0007)) * dt;
 
@@ -711,7 +740,7 @@ export class KartPhysics {
     const dv = forceLat / mass - this.u * this.yawRate + bankAcceleration;
     const rearInsideLoad = turnSign > 0 ? normalRL : turnSign < 0 ? normalRR : Math.min(normalRL, normalRR);
     const rearContact = clamp(rearInsideLoad / Math.max(staticRear * .5, 1), 0, 1);
-    const yawDampingCoefficient = 188 + rearContact * (88 + Math.abs(this.u) * 1.05);
+    const yawDampingCoefficient = 218 + Math.abs(this.u) * 1.4 + rearContact * (92 + Math.abs(this.u) * .9);
     const yawDamping = this.yawRate * yawDampingCoefficient;
     const frontMoment = a * (frontLatFL + frontLatFR) + KART_MODEL.frontWidth * .5 * (frontLongFR - frontLongFL);
     const rearMoment = -b * (fyRL + fyRR) + KART_MODEL.rearWidth * .5 * (fxRR - fxRL);

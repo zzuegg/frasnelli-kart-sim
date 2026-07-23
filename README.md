@@ -24,7 +24,7 @@ Im Hauptmenü **Mobile-Steuerung** einschalten. Der linke Daumen lenkt links/rec
 
 ## Fahrphysik
 
-Das Modell bildet den **Birel ART N35-XR ST** ab: 140 kg Kartmasse, 1.070 mm Radstand, 1.208/1.410 mm Vorder-/Hinterachsbreite, 40×5×1.060-mm-Starrachse, hydraulische Hinterachs-Scheibenbremse, 340-mm-Lenkrad sowie harte Mitas-SRH/Duro-Mietkartreifen. Physics V3 berechnet vier Radlasten und Raddrehzahlen, Ackermann-Lenkung, eine kombinierte Reifenellipse mit transientem Kraftaufbau, dynamische Chassisverwindung und Hinterradentlastung, Fahrerbewegung, Kupplungs-/Motorträgheit, Bremstemperatur sowie Reifenluftdruck, Temperatur und Verschleiß. Das Höhenmodell und die sägezahnförmigen Kerbs wirken einzeln auf jedes Rad.
+Das Modell bildet den **Birel ART N35-XR ST** ab: 140 kg Kartmasse, 1.070 mm Radstand, 1.208/1.410 mm Vorder-/Hinterachsbreite, 40×5×1.060-mm-Starrachse, hydraulische Hinterachs-Scheibenbremse, 340-mm-Lenkrad sowie harte Mitas-SRH/Duro-Mietkartreifen. Physics V4 berechnet vier Radlasten, Ackermann-Lenkung, eine kombinierte Reifenellipse mit transientem Kraftaufbau, dynamische Chassisverwindung und Hinterradentlastung, Fahrerbewegung, Kupplungs-/Motorträgheit, Bremstemperatur sowie Reifenluftdruck, Temperatur und Verschleiß. Die beiden Hinterräder besitzen exakt dieselbe Drehzahl der starren Achse; die breiteren Hinterreifen reagieren weniger empfindlich auf die hohe Außenradlast. Dadurch entsteht Leistungsübersteuern progressiv statt durch ein künstlich hochdrehendes Innenrad. Das Höhenmodell und die sägezahnförmigen Kerbs wirken einzeln auf jedes Rad.
 
 ## Bestzeit-Ghost
 

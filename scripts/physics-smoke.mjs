@@ -125,6 +125,26 @@ if (breakoutRotation < .22) throw new Error(`Breakout erzeugt zu wenig Gierbeweg
 if (breakoutRotation > .78) throw new Error(`Breakout dreht zu aggressiv ein: ${(breakoutRotation * 180 / Math.PI).toFixed(1)}°`);
 if (maximumForceDemand < .9) throw new Error('Der Vollbremstest nutzt die Reifenellipse nicht aus.');
 
+const poweredCornerKart = new KartPhysics(track, createKart());
+for (let i = 0; i < 120 * 20 && poweredCornerKart.speedKmh() < 55; i++) {
+  poweredCornerKart.update(1 / 120, { steer: 0, throttle: 1, brake: 0, wheelAngle: 0 });
+}
+let maximumPoweredBodySlip = 0;
+let maximumPoweredYaw = 0;
+let maximumRearAxleSpeedDifference = 0;
+for (let i = 0; i < 120 * 1.2; i++) {
+  poweredCornerKart.update(1 / 120, { steer: .22, throttle: 1, brake: 0, wheelAngle: .48 });
+  maximumPoweredBodySlip = Math.max(maximumPoweredBodySlip, Math.abs(Math.atan2(poweredCornerKart.v, poweredCornerKart.u)));
+  maximumPoweredYaw = Math.max(maximumPoweredYaw, Math.abs(poweredCornerKart.yawRate));
+  maximumRearAxleSpeedDifference = Math.max(
+    maximumRearAxleSpeedDifference,
+    Math.abs(poweredCornerKart.tires.rearLeft.omega - poweredCornerKart.tires.rearRight.omega),
+  );
+}
+console.log(`Power-corner diagnostic: body slip ${(maximumPoweredBodySlip * 180 / Math.PI).toFixed(1)} deg, yaw ${(maximumPoweredYaw * 180 / Math.PI).toFixed(1)} deg/s, axle delta ${maximumRearAxleSpeedDifference.toFixed(4)} rad/s`);
+if (maximumRearAxleSpeedDifference > 1e-6) throw new Error('Die starre Hinterachse erlaubt unterschiedliche Hinterrad-Drehzahlen.');
+if (maximumPoweredBodySlip > .26 || maximumPoweredYaw > 1.1) throw new Error('Das Kart geht unter Last zu abrupt ins Leistungsübersteuern.');
+
 const curbTrack = {
   ...track,
   surfaceAt(position) {
