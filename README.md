@@ -69,6 +69,7 @@ Quellen:
 - https://geoservices9.civis.bz.it/geoserver/ows?service=WCS&version=2.0.1&request=GetCapabilities
 - https://geodati.gov.it/resource/id/p_bz%3AElevation%3ADigitalTerrainModel-0.5m
 - https://www.openstreetmap.org/copyright
+- Poly Haven `asphalt_track`, `sparse_grass` und `alps_field` (CC0): https://polyhaven.com/
 
 ## Terrain neu erzeugen und prüfen
 

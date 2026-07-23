@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import './style.css';
 import { createTrack, ROAD_WIDTH } from './track.js';
 import { createKart, KartPhysics } from './kart.js';
@@ -92,19 +93,36 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.12;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9bb7c3);
-scene.fog = new THREE.FogExp2(0xa9bec2, .0017);
-const hemi = new THREE.HemisphereLight(0xc9e1ec, 0x38512c, 1.65); scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff3d4, 2.25);
-sun.position.set(-120, 180, 90); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = sun.shadow.camera.bottom = -260; sun.shadow.camera.right = sun.shadow.camera.top = 260;
-sun.shadow.camera.near = 10; sun.shadow.camera.far = 430; sun.shadow.bias = -.00018; scene.add(sun);
+scene.background = new THREE.Color(0xa7c0cd);
+scene.fog = new THREE.FogExp2(0xb5c7c9, .00135);
+scene.environmentIntensity = .62;
+new HDRLoader().load(`${import.meta.env.BASE_URL}textures/alps-field-1k.hdr`, texture => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  scene.environment = texture;
+  scene.background = texture;
+  scene.backgroundIntensity = .72;
+  scene.backgroundBlurriness = .025;
+  scene.backgroundRotation.y = -.42;
+});
+const hemi = new THREE.HemisphereLight(0xd7ebf2, 0x2c4325, .92); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffedc7, 3.25);
+const sunOffset = new THREE.Vector3(-120, 180, 90);
+sun.position.copy(sunOffset); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = sun.shadow.camera.bottom = -90;
+sun.shadow.camera.right = sun.shadow.camera.top = 90;
+sun.shadow.camera.near = 25;
+sun.shadow.camera.far = 360;
+sun.shadow.bias = -.00012;
+sun.shadow.normalBias = .018;
+sun.shadow.radius = 2;
+scene.add(sun, sun.target);
 
 const track = createTrack(scene);
 const kart = createKart(); scene.add(kart);
@@ -623,6 +641,9 @@ function frame() {
   } else {
     audio.update(physics.telemetry.rpm, currentInput.throttle, physics.telemetry.slip, physics.surface);
   }
+  sun.position.copy(kart.position).add(sunOffset);
+  sun.target.position.copy(kart.position);
+  sun.target.updateMatrixWorld();
   renderer.render(scene, camera);
 }
 

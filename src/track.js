@@ -13,7 +13,7 @@ function sampleGeoreferencedTrack() {
   }));
 }
 
-function makeStrip(points, inner, outer, y, material, vertexColors = false) {
+function makeStrip(points, inner, outer, y, material, vertexColors = false, lateralSegments = 1) {
   const positions = [];
   const uvs = [];
   const colors = [];
@@ -24,27 +24,34 @@ function makeStrip(points, inner, outer, y, material, vertexColors = false) {
     const next = points[(i + 1) % n].point;
     const tangent = next.clone().sub(prev).setY(0).normalize();
     const right = new THREE.Vector3(-tangent.z, 0, tangent.x);
-    const a = points[i].point.clone().addScaledVector(right, inner);
-    const b = points[i].point.clone().addScaledVector(right, outer);
     const half = ROAD_WIDTH * .5;
     const heightAtOffset = offset => {
       if (offset < 0) return THREE.MathUtils.lerp(points[i].point.y, points[i].leftHeight, Math.min(1, -offset / half));
       return THREE.MathUtils.lerp(points[i].point.y, points[i].rightHeight, Math.min(1, offset / half));
     };
-    positions.push(a.x, heightAtOffset(inner) + y, a.z, b.x, heightAtOffset(outer) + y, b.z);
-    uvs.push(0, i / 5, 1, i / 5);
-    if (vertexColors) {
-      const even = Math.floor((i / n) * TRACK_LENGTH_METERS / 4) % 2 === 0;
-      const c = even ? new THREE.Color(0xe8e8e2) : new THREE.Color(0xd62f28);
-      colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    for (let segment = 0; segment <= lateralSegments; segment++) {
+      const ratio = segment / lateralSegments;
+      const offset = THREE.MathUtils.lerp(inner, outer, ratio);
+      const vertex = points[i].point.clone().addScaledVector(right, offset);
+      positions.push(vertex.x, heightAtOffset(offset) + y, vertex.z);
+      uvs.push(ratio, i / 5);
+      if (vertexColors) {
+        const even = Math.floor((i / n) * TRACK_LENGTH_METERS / 4) % 2 === 0;
+        const c = even ? new THREE.Color(0xe8e8e2) : new THREE.Color(0xd62f28);
+        colors.push(c.r, c.g, c.b);
+      }
     }
   }
+  const rowWidth = lateralSegments + 1;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    const a = i * 2, b = a + 1, c = j * 2, d = c + 1;
-    // Counter-clockwise from above: normals point upward and the road remains
-    // visible with Three.js' default front-face culling.
-    indices.push(a, b, c, b, d, c);
+    for (let segment = 0; segment < lateralSegments; segment++) {
+      const a = i * rowWidth + segment;
+      const b = a + 1;
+      const c = j * rowWidth + segment;
+      const d = c + 1;
+      indices.push(a, b, c, b, d, c);
+    }
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -104,41 +111,23 @@ export function createRacingLine(scene) {
   return line;
 }
 
-function makeRoadTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#343632'; ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 9000; i++) {
-    const v = 35 + Math.random() * 45;
-    ctx.fillStyle = `rgba(${v},${v},${v * .92},${.08 + Math.random() * .15})`;
-    const s = Math.random() * 1.4;
-    ctx.fillRect(Math.random() * 256, Math.random() * 256, s, s);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(1.5, 120);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  return texture;
-}
+const textureLoader = new THREE.TextureLoader();
 
-function makeGrassTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#315b29'; ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 6000; i++) {
-    const g = 65 + Math.random() * 55;
-    ctx.fillStyle = `rgba(${22 + Math.random() * 20},${g},${20 + Math.random() * 20},.25)`;
-    ctx.fillRect(Math.random() * 256, Math.random() * 256, 1, 1 + Math.random() * 2);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(42, 28);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return texture;
+function loadPbrSet(asset, repeatX, repeatY, anisotropy = 8) {
+  const load = (map, color = false) => {
+    const texture = textureLoader.load(`${import.meta.env.BASE_URL}textures/${asset}-${map}.jpg`);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeatX, repeatY);
+    texture.anisotropy = anisotropy;
+    if (color) texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  };
+  return {
+    map: load('albedo', true),
+    normalMap: load('normal'),
+    roughnessMap: load('roughness'),
+    displacementMap: load('displacement'),
+  };
 }
 
 function buildBarrier(points, side, scene) {
@@ -221,24 +210,21 @@ function createTerrainMesh() {
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
-  const terrain = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ map: makeGrassTexture(), color: 0x6d965d, roughness: 1 }));
+  const grassPbr = loadPbrSet('sparse_grass', 55, 42, 4);
+  const terrain = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+    ...grassPbr,
+    color: 0xffffff,
+    roughness: .96,
+    normalScale: new THREE.Vector2(.72, .72),
+    displacementScale: .028,
+    displacementBias: -.014,
+  }));
   terrain.receiveShadow = true;
   return terrain;
 }
 
 function addEnvironment(scene, points) {
   scene.add(createTerrainMesh());
-
-  const mountainMat = new THREE.MeshStandardMaterial({ color: 0x526959, roughness: 1, flatShading: true });
-  const farMat = new THREE.MeshStandardMaterial({ color: 0x718078, roughness: 1, flatShading: true });
-  for (let i = 0; i < 28; i++) {
-    const angle = (i / 28) * Math.PI * 2;
-    const radius = 270 + (i % 4) * 18;
-    const h = 55 + (i * 29 % 70);
-    const m = new THREE.Mesh(new THREE.ConeGeometry(38 + (i % 3) * 10, h, 7), i % 3 ? mountainMat : farMat);
-    m.position.set(Math.cos(angle) * radius, h / 2 - 6, Math.sin(angle) * radius);
-    m.rotation.y = angle * 1.7; m.receiveShadow = true; scene.add(m);
-  }
 
   const buildingMat = new THREE.MeshStandardMaterial({ color: 0xd9ddd5, roughness: .8 });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x343a36, roughness: .7 });
@@ -273,12 +259,32 @@ function addEnvironment(scene, points) {
 
 export function createTrack(scene) {
   const points = sampleGeoreferencedTrack();
-  const roadMat = new THREE.MeshStandardMaterial({ map: makeRoadTexture(), color: 0x8b8e88, roughness: .96, metalness: 0, side: THREE.DoubleSide });
-  const road = makeStrip(points, -ROAD_WIDTH / 2, ROAD_WIDTH / 2, .03, roadMat);
+  const asphaltPbr = loadPbrSet('asphalt_track', 2.25, 1.25, 8);
+  const roadMat = new THREE.MeshStandardMaterial({
+    ...asphaltPbr,
+    color: 0xd5d8d2,
+    roughness: .93,
+    metalness: 0,
+    normalScale: new THREE.Vector2(.68, .68),
+    displacementScale: .007,
+    displacementBias: -.0035,
+    side: THREE.DoubleSide,
+  });
+  const road = makeStrip(points, -ROAD_WIDTH / 2, ROAD_WIDTH / 2, .03, roadMat, false, 8);
   road.receiveShadow = true; scene.add(road);
-  const curbMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .82, side: THREE.DoubleSide });
-  const curbL = makeStrip(points, -ROAD_WIDTH / 2 - .6, -ROAD_WIDTH / 2, .065, curbMat, true);
-  const curbR = makeStrip(points, ROAD_WIDTH / 2, ROAD_WIDTH / 2 + .6, .065, curbMat, true);
+  const curbMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    normalMap: asphaltPbr.normalMap,
+    roughnessMap: asphaltPbr.roughnessMap,
+    displacementMap: asphaltPbr.displacementMap,
+    normalScale: new THREE.Vector2(.9, .9),
+    displacementScale: .014,
+    displacementBias: -.004,
+    roughness: .8,
+    side: THREE.DoubleSide,
+  });
+  const curbL = makeStrip(points, -ROAD_WIDTH / 2 - .6, -ROAD_WIDTH / 2, .065, curbMat, true, 3);
+  const curbR = makeStrip(points, ROAD_WIDTH / 2, ROAD_WIDTH / 2 + .6, .065, curbMat, true, 3);
   curbL.receiveShadow = curbR.receiveShadow = true; scene.add(curbL, curbR);
   const racingLine = createRacingLine(scene);
   buildBarrier(points, -1, scene); buildBarrier(points, 1, scene);
