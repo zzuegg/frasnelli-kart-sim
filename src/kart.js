@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { ROAD_WIDTH } from './track.js';
 
 const clamp = THREE.MathUtils.clamp;
@@ -103,49 +104,181 @@ function mesh(geometry, material, cast = true) {
   return object;
 }
 
+function tube(group, from, to, radius, material, segments = 10) {
+  const start = new THREE.Vector3(...from);
+  const end = new THREE.Vector3(...to);
+  const direction = end.clone().sub(start);
+  const object = mesh(new THREE.CylinderGeometry(radius, radius, direction.length(), segments), material);
+  object.position.copy(start).add(end).multiplyScalar(.5);
+  object.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  group.add(object);
+  return object;
+}
+
+function roundedBox(group, size, position, material, radius = .035, rotation = null) {
+  const safeRadius = Math.min(radius, Math.min(...size) * .46);
+  const object = mesh(new RoundedBoxGeometry(size[0], size[1], size[2], 3, safeRadius), material);
+  object.position.set(...position);
+  if (rotation) object.rotation.set(...rotation);
+  group.add(object);
+  return object;
+}
+
 export function createKart() {
   const root = new THREE.Group();
   const moving = new THREE.Group(); moving.rotation.y = Math.PI; root.add(moving);
-  const red = new THREE.MeshStandardMaterial({ color: 0xd92720, roughness: .35, metalness: .08 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x111412, roughness: .48, metalness: .35 });
-  const metal = new THREE.MeshStandardMaterial({ color: 0xaeb5af, roughness: .3, metalness: .82 });
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x090a09, roughness: .9 });
-  const seatMat = new THREE.MeshStandardMaterial({ color: 0x252a27, roughness: .65 });
-  const driverMat = new THREE.MeshStandardMaterial({ color: 0x26394e, roughness: .7 });
+  const detailed = typeof window !== 'undefined';
+  const red = new THREE.MeshStandardMaterial({ color: 0xcf171f, roughness: .32, metalness: .04 });
+  const redDark = new THREE.MeshStandardMaterial({ color: 0x7e0c12, roughness: .4, metalness: .08 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x111614, roughness: .42, metalness: .48 });
+  const plastic = new THREE.MeshStandardMaterial({ color: 0x161a18, roughness: .62, metalness: .02 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xaeb6b4, roughness: .27, metalness: .88 });
+  const alloy = new THREE.MeshStandardMaterial({ color: 0xd5d9d5, roughness: .2, metalness: .9 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x080908, roughness: .94 });
+  const seatMat = new THREE.MeshStandardMaterial({ color: 0x171b19, roughness: .72 });
+  const engineBlack = new THREE.MeshStandardMaterial({ color: 0x202321, roughness: .58, metalness: .36 });
+  const driverMat = new THREE.MeshStandardMaterial({ color: 0x223c5b, roughness: .66 });
+  const gloveMat = new THREE.MeshStandardMaterial({ color: 0x171918, roughness: .82 });
+  const helmetMat = new THREE.MeshStandardMaterial({ color: 0xf1f2ed, roughness: .25, metalness: .05 });
+  const visorMat = new THREE.MeshStandardMaterial({ color: 0x07131b, roughness: .08, metalness: .42 });
 
-  const chassis = mesh(new THREE.BoxGeometry(.76, .12, 1.45), dark); chassis.position.y = .25; moving.add(chassis);
-  const floor = mesh(new THREE.BoxGeometry(1.02, .055, 1.58), metal); floor.position.set(0, .18, .02); moving.add(floor);
-  const nose = mesh(new THREE.BoxGeometry(.72, .18, .48), red); nose.position.set(0, .31, .84); moving.add(nose);
-  const noseTop = mesh(new THREE.BoxGeometry(.38, .12, .42), red); noseTop.position.set(0, .44, .82); moving.add(noseTop);
-  // The N35 uses a compact rear end cover inside the 1.410 m rear tyre width.
-  // The actual 40 x 5 x 1060 mm live axle ends at the inner tyre faces.
-  const rear = mesh(new THREE.BoxGeometry(1.18, .24, .36), red); rear.name = 'Rear end cover'; rear.position.set(0, .34, -.78); moving.add(rear);
-  const rearAxle = mesh(new THREE.CylinderGeometry(.02, .02, 1.06, 14), metal); rearAxle.name = 'Rear axle'; rearAxle.rotation.z = Math.PI / 2; rearAxle.position.set(0, .25, -.535); moving.add(rearAxle);
+  if (detailed) {
+    // 35 mm tubular N35 frame. Segmenting the bent rails keeps the silhouette
+    // accurate without importing a licensed third-party mesh.
+    const frameRadius = .0175;
+    for (const side of [-1, 1]) {
+      tube(moving, [side * .33, .22, -.65], [side * .36, .22, .40], frameRadius, dark, 12);
+      tube(moving, [side * .36, .22, .40], [side * .27, .22, .72], frameRadius, dark, 12);
+      tube(moving, [side * .45, .23, -.58], [side * .61, .25, -.36], frameRadius, dark, 12);
+      tube(moving, [side * .61, .25, -.36], [side * .64, .25, .50], frameRadius, dark, 12);
+      tube(moving, [side * .64, .25, .50], [side * .51, .24, .71], frameRadius, dark, 12);
+    }
+    tube(moving, [-.45, .23, -.60], [.45, .23, -.60], frameRadius, dark, 12);
+    tube(moving, [-.38, .22, -.12], [.38, .22, -.12], frameRadius, dark, 12);
+    tube(moving, [-.33, .22, .39], [.33, .22, .39], frameRadius, dark, 12);
+    tube(moving, [-.27, .22, .72], [.27, .22, .72], frameRadius, dark, 12);
 
-  for (const side of [-1, 1]) {
-    const pod = mesh(new THREE.BoxGeometry(.22, .19, .88), red); pod.position.set(side * .54, .3, .05); moving.add(pod);
+    const floor = roundedBox(moving, [.84, .026, 1.31], [0, .205, .06], metal, .025);
+    floor.name = 'Aluminium floor tray';
+    roundedBox(moving, [.44, .035, .34], [0, .225, .57], plastic, .03);
+
+    // Energy-absorbing N35 perimeter protection and moulded bodywork.
+    for (const side of [-1, 1]) {
+      tube(moving, [side * .70, .27, -.56], [side * .73, .28, .49], .025, dark, 12);
+      tube(moving, [side * .73, .28, .49], [side * .60, .29, .72], .025, dark, 12);
+      const pod = roundedBox(moving, [.25, .20, .87], [side * .58, .33, .02], red, .065);
+      pod.name = side < 0 ? 'Left N35 shock pod' : 'Right N35 shock pod';
+      roundedBox(moving, [.055, .13, .79], [side * .715, .31, .02], plastic, .022);
+      roundedBox(moving, [.20, .045, .72], [side * .57, .445, .02], redDark, .02);
+    }
+
+    tube(moving, [-.62, .25, .79], [.62, .25, .79], .028, dark, 12);
+    tube(moving, [-.66, .25, .75], [-.70, .27, .58], .025, dark, 12);
+    tube(moving, [.66, .25, .75], [.70, .27, .58], .025, dark, 12);
+    roundedBox(moving, [.92, .20, .18], [0, .34, .81], red, .075);
+    roundedBox(moving, [.40, .20, .56], [0, .35, .57], red, .07, [-.05, 0, 0]);
+    roundedBox(moving, [.34, .055, .42], [0, .465, .56], redDark, .025);
+    roundedBox(moving, [.25, .018, .18], [0, .502, .57], alloy, .008);
+
+    // The rear cover sits inside the 1.410 m tyre width. The live axle itself
+    // remains 1.060 m long and is no longer represented as an exposed wide bar.
+    tube(moving, [-.68, .29, -.70], [.68, .29, -.70], .031, dark, 12);
+    tube(moving, [-.68, .29, -.70], [-.72, .29, -.52], .028, dark, 12);
+    tube(moving, [.68, .29, -.70], [.72, .29, -.52], .028, dark, 12);
+    const rearCover = roundedBox(moving, [1.16, .25, .27], [0, .38, -.65], red, .07);
+    rearCover.name = 'Rear end cover';
+    roundedBox(moving, [.96, .075, .24], [0, .50, -.65], plastic, .028);
+  } else {
+    const chassis = mesh(new THREE.BoxGeometry(.76, .08, 1.35), dark);
+    chassis.position.set(0, .23, 0);
+    moving.add(chassis);
+    const rearCover = mesh(new THREE.BoxGeometry(1.16, .20, .26), red);
+    rearCover.name = 'Rear end cover';
+    rearCover.position.set(0, .36, -.65);
+    moving.add(rearCover);
   }
 
-  const seat = mesh(new THREE.BoxGeometry(.54, .7, .12), seatMat); seat.position.set(0, .65, -.32); seat.rotation.x = -.18; moving.add(seat);
-  const driverBody = mesh(new THREE.CapsuleGeometry(.23, .48, 6, 10), driverMat); driverBody.position.set(0, .82, -.22); driverBody.rotation.x = -.08; moving.add(driverBody);
-  const helmet = mesh(new THREE.SphereGeometry(.22, 20, 14), new THREE.MeshStandardMaterial({ color: 0xf0f1ea, roughness: .3 })); helmet.position.set(0, 1.24, -.18); moving.add(helmet);
-  const visor = mesh(new THREE.BoxGeometry(.29, .095, .03), new THREE.MeshStandardMaterial({ color: 0x0e1820, roughness: .12, metalness: .3 })); visor.position.set(0, 1.27, .015); visor.rotation.x = -.08; moving.add(visor);
+  // The visual axle terminates at the inner tyre faces.
+  const rearAxle = mesh(new THREE.CylinderGeometry(.02, .02, 1.06, 16), metal);
+  rearAxle.name = 'Rear axle';
+  rearAxle.rotation.z = Math.PI / 2;
+  rearAxle.position.set(0, .25, -.535);
+  moving.add(rearAxle);
+
+  if (detailed) {
+    // Rear hydraulic brake disc and caliper.
+    const brakeDisc = mesh(new THREE.CylinderGeometry(.09, .09, .008, 28), alloy);
+    brakeDisc.rotation.z = Math.PI / 2;
+    brakeDisc.position.set(.22, .25, -.535);
+    moving.add(brakeDisc);
+    const brakeHub = mesh(new THREE.CylinderGeometry(.035, .035, .018, 18), dark);
+    brakeHub.rotation.z = Math.PI / 2;
+    brakeHub.position.copy(brakeDisc.position);
+    moving.add(brakeHub);
+    roundedBox(moving, [.04, .10, .06], [.205, .31, -.54], redDark, .012);
+
+    // Honda GX390-style four-stroke package on the driver's right.
+    roundedBox(moving, [.37, .29, .36], [-.43, .41, -.34], engineBlack, .045);
+    roundedBox(moving, [.30, .22, .27], [-.43, .53, -.32], red, .035);
+    roundedBox(moving, [.25, .075, .22], [-.43, .67, -.32], plastic, .025);
+    roundedBox(moving, [.17, .17, .19], [-.63, .52, -.32], plastic, .03);
+    const recoil = mesh(new THREE.CylinderGeometry(.105, .105, .035, 28), engineBlack);
+    recoil.rotation.z = Math.PI / 2;
+    recoil.position.set(-.635, .45, -.32);
+    moving.add(recoil);
+    const recoilRing = mesh(new THREE.TorusGeometry(.071, .008, 8, 24), metal);
+    recoilRing.rotation.y = Math.PI / 2;
+    recoilRing.position.set(-.655, .45, -.32);
+    moving.add(recoilRing);
+    roundedBox(moving, [.16, .19, .21], [-.26, .56, -.33], dark, .025);
+    tube(moving, [-.27, .60, -.38], [-.17, .66, -.53], .018, dark, 10);
+    roundedBox(moving, [.18, .12, .20], [-.14, .67, -.56], engineBlack, .025);
+
+    // Fuel tank, chain guard and final-drive sprocket.
+    roundedBox(moving, [.25, .25, .33], [.43, .43, -.34], plastic, .055);
+    roundedBox(moving, [.105, .025, .105], [.43, .57, -.34], red, .012);
+    const sprocket = mesh(new THREE.CylinderGeometry(.105, .105, .012, 26), metal);
+    sprocket.rotation.z = Math.PI / 2;
+    sprocket.position.set(-.31, .25, -.535);
+    moving.add(sprocket);
+    roundedBox(moving, [.055, .15, .39], [-.32, .33, -.46], plastic, .035, [0, 0, -.05]);
+
+    // Adjustable pedals, steering supports and visible tie rods.
+    for (const side of [-1, 1]) {
+      tube(moving, [side * .19, .23, .49], [side * .22, .34, .62], .012, metal, 10);
+      roundedBox(moving, [.085, .025, .13], [side * .22, .36, .65], alloy, .012, [-.25, 0, 0]);
+      tube(moving, [side * .05, .34, .41], [side * .48, .29, .53], .009, metal, 8);
+    }
+  }
 
   const wheelHubs = [];
   const frontPivots = [];
   const rearPivots = [];
   const wheels = {};
-  const frontWheelGeometry = new THREE.CylinderGeometry(.132, .132, .12, 18);
-  const rearWheelGeometry = new THREE.CylinderGeometry(.138, .138, .18, 18);
   for (const z of [-.535, .535]) {
     const isFront = z > 0;
     const xOffset = isFront ? .544 : .615;
     const tireWidth = isFront ? .12 : .18;
+    const tireRadius = isFront ? .132 : .138;
     for (const side of [-1, 1]) {
       const pivot = new THREE.Group(); pivot.position.set(side * xOffset, .25, z); moving.add(pivot);
-      const wheelGeometry = isFront ? frontWheelGeometry : rearWheelGeometry;
-      const wheel = mesh(wheelGeometry, rubber); wheel.rotation.z = Math.PI / 2; pivot.add(wheel);
-      const hub = mesh(new THREE.CylinderGeometry(.06, .06, tireWidth + .01, 12), metal); hub.rotation.z = Math.PI / 2; pivot.add(hub);
+      const wheel = new THREE.Group();
+      const tire = mesh(new THREE.CylinderGeometry(tireRadius, tireRadius, tireWidth, 28), rubber);
+      tire.rotation.z = Math.PI / 2;
+      wheel.add(tire);
+      const rim = mesh(new THREE.CylinderGeometry(.074, .074, tireWidth + .006, 24), redDark);
+      rim.rotation.z = Math.PI / 2;
+      wheel.add(rim);
+      const hub = mesh(new THREE.CylinderGeometry(.034, .034, tireWidth + .016, 18), metal);
+      hub.rotation.z = Math.PI / 2;
+      wheel.add(hub);
+      for (const face of [-1, 1]) {
+        const rimLip = mesh(new THREE.TorusGeometry(.071, .006, 8, 24), alloy);
+        rimLip.rotation.y = Math.PI / 2;
+        rimLip.position.x = face * (tireWidth * .5 + .006);
+        wheel.add(rimLip);
+      }
+      pivot.add(wheel);
       wheelHubs.push(wheel, hub);
       const axle = isFront ? 'front' : 'rear';
       const sideName = side < 0 ? 'Left' : 'Right';
@@ -155,9 +288,49 @@ export function createKart() {
     }
   }
 
-  const column = mesh(new THREE.CylinderGeometry(.025, .025, .54, 10), metal); column.position.set(0, .76, .31); column.rotation.x = -.54; moving.add(column);
-  const steeringWheel = mesh(new THREE.TorusGeometry(.17, .025, 8, 24), dark); steeringWheel.position.set(0, .96, .51); steeringWheel.rotation.x = Math.PI / 2 - .54; moving.add(steeringWheel);
-  const spoke = mesh(new THREE.BoxGeometry(.29, .028, .025), metal); steeringWheel.add(spoke);
+  const column = tube(moving, [0, .34, .38], [0, .91, .49], .022, metal, 12);
+  column.name = 'Steering column';
+  const steeringWheel = new THREE.Group();
+  steeringWheel.position.set(0, .96, .51);
+  steeringWheel.rotation.x = Math.PI / 2 - .54;
+  moving.add(steeringWheel);
+  const steeringRim = mesh(new THREE.TorusGeometry(.17, .023, 10, 30), rubber);
+  steeringWheel.add(steeringRim);
+  for (const angle of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) {
+    const spoke = mesh(new THREE.BoxGeometry(.145, .018, .025), metal);
+    spoke.position.x = Math.cos(angle) * .072;
+    spoke.position.y = Math.sin(angle) * .072;
+    spoke.rotation.z = angle;
+    steeringWheel.add(spoke);
+  }
+  const steeringBoss = mesh(new THREE.CylinderGeometry(.04, .04, .025, 18), redDark);
+  steeringBoss.rotation.x = Math.PI / 2;
+  steeringWheel.add(steeringBoss);
+
+  // Deep rental seat, driver and limbs. The helmet/visor remain separate for
+  // cockpit-camera hiding and ghost rendering.
+  const seatBack = roundedBox(moving, [.52, .68, .09], [0, .64, -.30], seatMat, .075, [-.18, 0, 0]);
+  seatBack.name = 'Adjustable N35 bucket seat';
+  roundedBox(moving, [.48, .09, .43], [0, .34, -.13], seatMat, .06, [-.08, 0, 0]);
+  for (const side of [-1, 1]) roundedBox(moving, [.09, .32, .38], [side * .255, .51, -.22], seatMat, .045, [-.08, 0, side * .08]);
+
+  const driverBody = mesh(new THREE.CapsuleGeometry(.23, .48, 7, 12), driverMat);
+  driverBody.position.set(0, .82, -.22);
+  driverBody.rotation.x = -.08;
+  moving.add(driverBody);
+  const helmet = mesh(new THREE.SphereGeometry(.22, 24, 18), helmetMat);
+  helmet.position.set(0, 1.24, -.18);
+  moving.add(helmet);
+  const visor = roundedBox(moving, [.30, .10, .025], [0, 1.27, .015], visorMat, .025, [-.08, 0, 0]);
+  for (const side of [-1, 1]) {
+    tube(moving, [side * .17, .93, -.10], [side * .23, .84, .24], .055, driverMat, 10);
+    tube(moving, [side * .23, .84, .24], [side * .13, .95, .46], .045, driverMat, 10);
+    const glove = mesh(new THREE.SphereGeometry(.055, 12, 8), gloveMat);
+    glove.position.set(side * .13, .95, .46);
+    moving.add(glove);
+    tube(moving, [side * .14, .48, -.05], [side * .18, .35, .42], .07, driverMat, 10);
+    roundedBox(moving, [.12, .075, .22], [side * .20, .30, .56], gloveMat, .025, [-.05, 0, 0]);
+  }
 
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .28, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = .03; root.add(shadow);

@@ -34,6 +34,10 @@ Die N35-Baureihe kann laut Hersteller mit Honda GX200, GX270 oder GX390 sowie tr
 
 Fahrzeugquelle: https://www.birelart.com/assets/elfinder-2/files/download/brochure/rental_gasoline_v4%20web.pdf
 
+## 3D-Kartmodell
+
+Das Kartmodell wird direkt im Spiel erzeugt und verwendet deshalb keine fremden, eingeschränkt weiterverteilbaren Meshes. Es bildet den 35-mm-Rohrrahmen, die N35-Aufprallschutz-Pods, die geschützte 1.060-mm-Starrachse, Hinterradbremse, Kettenantrieb, einen GX390-ähnlichen Viertaktmotor, Tank, Auspuff, verstellbaren Sitz und Pedale sowie getrennt animierte Räder und Lenkung ab. Für die KI-Simulation wird automatisch eine vereinfachte unsichtbare Variante verwendet, damit das Offline-Training nicht durch die Grafik verlangsamt wird.
+
 ## Online-Version
 
 Die Web-Version funktioniert statisch auf GitHub Pages. Neue Runden werden weiterhin lokal im Browser gespeichert. Die serverseitig gestartete KI-Optimierung funktioniert hingegen nur im lokalen Vite-Entwicklungsserver.
